@@ -3,7 +3,6 @@ package com.e.jizhnag;
 import android.app.AlertDialog;
 import android.app.DatePickerDialog;
 import android.content.ContentValues;
-import android.content.DialogInterface;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
@@ -91,14 +90,52 @@ public class MainActivity extends AppCompatActivity {
             overridePendingTransition(android.R.anim.slide_in_left, android.R.anim.slide_out_right);
         });
 
-        // "清空"点击 → 弹出带 5 秒倒计时的弹窗，倒计时结束确认按钮才可点击
+        // "清空"带 5 秒倒计时删除所有记录
         binding.btnClearRecords.setOnClickListener(v -> {
             List<Record> allRecords = recordManager.getRecords();
             if (allRecords.isEmpty()) {
                 Toast.makeText(this, "暂无记录可清空", Toast.LENGTH_SHORT).show();
                 return;
             }
-            showClearCountdown(allRecords.size());
+
+            // 创建倒计时弹窗
+            AlertDialog.Builder builder = new AlertDialog.Builder(this);
+            builder.setTitle("⚠️ 清空所有记录");
+            builder.setCancelable(false);
+
+            // 倒计时显示文字
+            TextView countdownText = new TextView(this);
+            countdownText.setGravity(Gravity.CENTER);
+            countdownText.setTextSize(16);
+            countdownText.setTextColor(ContextCompat.getColor(this, R.color.text_primary));
+            countdownText.setPadding(dp(24), dp(16), dp(24), dp(16));
+
+            final int[] seconds = {5};
+            countdownText.setText("正在删除" + "\n\n" + seconds[0] + " 秒后执行...");
+
+            builder.setView(countdownText);
+            builder.setNegativeButton("取消", (dialog, which) -> dialog.dismiss());
+            AlertDialog dialog = builder.show();
+
+            // 倒计时更新
+            android.os.Handler handler = new android.os.Handler();
+            Runnable countdown = new Runnable() {
+                @Override
+                public void run() {
+                    seconds[0]--;
+                    if (seconds[0] > 0) {
+                        countdownText.setText("正在删除" + "\n\n" + seconds[0] + " 秒后执行...");
+                        handler.postDelayed(this, 1000);
+                    } else {
+                        // 5 秒到，执行清空
+                        recordManager.clearAllRecords();
+                        refreshUI();
+                        dialog.dismiss();
+                        Toast.makeText(MainActivity.this, "已清空所有记录", Toast.LENGTH_SHORT).show();
+                    }
+                }
+            };
+            handler.postDelayed(countdown, 1000);
         });
 
         refreshUI();
@@ -778,83 +815,6 @@ public class MainActivity extends AppCompatActivity {
 
     private String formatMoney(double value) {
         return String.format(Locale.CHINA, "¥ %.2f", value);
-    }
-
-    /**
-     * 弹出带倒计时的确认弹窗，5 秒倒计时结束后确认按钮才可用
-     */
-    private void showClearCountdown(int count) {
-        // 自定义布局
-        LinearLayout layout = new LinearLayout(this);
-        layout.setOrientation(LinearLayout.VERTICAL);
-        layout.setPadding(dp(24), dp(16), dp(24), dp(16));
-        layout.setGravity(Gravity.CENTER);
-
-        // 倒计时文字
-        TextView countdownText = new TextView(this);
-        countdownText.setGravity(Gravity.CENTER);
-        countdownText.setTextSize(18);
-        countdownText.setTextColor(ContextCompat.getColor(this, R.color.text_primary));
-        countdownText.setText("5");
-        countdownText.setPadding(0, dp(8), 0, dp(4));
-        layout.addView(countdownText);
-
-        // 提示文字
-        TextView hintText = new TextView(this);
-        hintText.setGravity(Gravity.CENTER);
-        hintText.setTextSize(13);
-        hintText.setTextColor(ContextCompat.getColor(this, R.color.text_secondary));
-        hintText.setText("秒后可确认清空 " + count + " 条记录");
-        hintText.setPadding(0, 0, 0, dp(8));
-        layout.addView(hintText);
-
-        AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        builder.setTitle("⚠️ 清空所有记录");
-        builder.setView(layout);
-        builder.setCancelable(false);
-
-        // 先设置一个占位 PositiveButton，后面动态改状态
-        AlertDialog dialog = builder.create();
-
-        // 用 setButton 方式
-        dialog.setButton(DialogInterface.BUTTON_POSITIVE, "确认 (" + 5 + ")", (d, w) -> {});
-        dialog.setButton(DialogInterface.BUTTON_NEGATIVE, "取消", (d, w) -> d.dismiss());
-
-        dialog.show();
-
-        // 获取确认按钮
-        Button positiveBtn = dialog.getButton(DialogInterface.BUTTON_POSITIVE);
-        positiveBtn.setEnabled(false);
-        positiveBtn.setTextColor(0xFFBBBBBB);
-
-        final int[] seconds = {5};
-        android.os.Handler handler = new android.os.Handler();
-        Runnable countdown = new Runnable() {
-            @Override
-            public void run() {
-                seconds[0]--;
-                if (seconds[0] > 0) {
-                    countdownText.setText(String.valueOf(seconds[0]));
-                    positiveBtn.setText("确认 (" + seconds[0] + ")");
-                    handler.postDelayed(this, 1000);
-                } else {
-                    // 倒计时结束
-                    countdownText.setText("0");
-                    positiveBtn.setText("确认删除");
-                    positiveBtn.setEnabled(true);
-                    positiveBtn.setTextColor(ContextCompat.getColor(MainActivity.this, R.color.primary));
-
-                    // 重新设置点击事件
-                    positiveBtn.setOnClickListener(v -> {
-                        recordManager.clearAllRecords();
-                        refreshUI();
-                        dialog.dismiss();
-                        Toast.makeText(MainActivity.this, "✅ 已清空所有记录", Toast.LENGTH_SHORT).show();
-                    });
-                }
-            }
-        };
-        handler.postDelayed(countdown, 1000);
     }
 
     private String formatMoneyRaw(double value) {
