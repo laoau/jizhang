@@ -1,0 +1,639 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.coordinatorlayout.widget.CoordinatorLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#F5F5FA"
+    tools:context=".MainActivity">
+
+    <!-- ====== 状态栏占位 + 顶部渐变背景 ====== -->
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="240dp"
+        android:background="@drawable/bg_gradient_header"
+        app:layout_behavior="com.google.android.material.appbar.AppBarLayout$ScrollingViewBehavior" />
+
+    <!-- ====== 主内容（可滚动） ====== -->
+    <androidx.core.widget.NestedScrollView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:clipToPadding="false"
+        android:paddingTop="0dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingHorizontal="16dp">
+
+            <!-- 间隙让顶部渐变透出来 -->
+            <Space android:layout_width="match_parent" android:layout_height="20dp" />
+
+            <!-- ====== 1. 欢迎 + 日期 ====== -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:weightSum="1">
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="0.7"
+                    android:orientation="vertical">
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="👋 你好"
+                        android:textColor="#FFFFFF"
+                        android:textSize="16sp"
+                        android:fontFamily="sans-serif-medium" />
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="今天也要好好记账哦"
+                        android:textColor="#DDFFFFFF"
+                        android:textSize="12sp"
+                        android:layout_marginTop="2dp" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="0.3"
+                    android:orientation="vertical"
+                    android:gravity="end">
+                    <TextView
+                        android:id="@+id/tv_today"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="2026-05-15"
+                        android:textColor="#FFFFFF"
+                        android:textSize="13sp"
+                        android:fontFamily="sans-serif-medium" />
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="周四"
+                        android:textColor="#DDFFFFFF"
+                        android:textSize="11sp"
+                        android:layout_marginTop="2dp"
+                        android:gravity="end" />
+                </LinearLayout>
+
+            </LinearLayout>
+
+            <!-- ====== 2. 总资产卡片 ====== -->
+            <androidx.cardview.widget.CardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                app:cardCornerRadius="20dp"
+                app:cardElevation="6dp"
+                app:cardBackgroundColor="#FFFFFF"
+                android:foreground="?attr/selectableItemBackground">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="20dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="本月结余"
+                        android:textColor="#888888"
+                        android:textSize="13sp" />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:layout_marginTop="4dp"
+                        android:gravity="end">
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="¥ 12,580.00"
+                            android:textColor="#1A1A2E"
+                            android:textSize="28sp"
+                            android:fontFamily="sans-serif-medium"
+                            android:letterSpacing="0.02" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="↑ 8.2%"
+                            android:textColor="#4CAF50"
+                            android:textSize="12sp"
+                            android:gravity="bottom"
+                            android:layout_gravity="bottom"
+                            android:layout_marginBottom="4dp"
+                            android:fontFamily="sans-serif-medium" />
+                    </LinearLayout>
+
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:background="#F0F0F0"
+                        android:layout_marginVertical="14dp" />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:weightSum="2">
+
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:orientation="horizontal"
+                            android:gravity="center_vertical">
+                            <View
+                                android:layout_width="10dp"
+                                android:layout_height="10dp"
+                                android:background="@drawable/circle_green" />
+                            <LinearLayout
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:orientation="vertical"
+                                android:layout_marginStart="8dp">
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="收入"
+                                    android:textColor="#999999"
+                                    android:textSize="11sp" />
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="¥ 18,600.00"
+                                    android:textColor="#2E7D32"
+                                    android:textSize="16sp"
+                                    android:fontFamily="sans-serif-medium" />
+                            </LinearLayout>
+                        </LinearLayout>
+
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:orientation="horizontal"
+                            android:gravity="center_vertical">
+                            <View
+                                android:layout_width="10dp"
+                                android:layout_height="10dp"
+                                android:background="@drawable/circle_red" />
+                            <LinearLayout
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:orientation="vertical"
+                                android:layout_marginStart="8dp">
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="支出"
+                                    android:textColor="#999999"
+                                    android:textSize="11sp" />
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="¥ 6,020.00"
+                                    android:textColor="#C62828"
+                                    android:textSize="16sp"
+                                    android:fontFamily="sans-serif-medium" />
+                            </LinearLayout>
+                        </LinearLayout>
+
+                    </LinearLayout>
+
+                </LinearLayout>
+
+            </androidx.cardview.widget.CardView>
+
+            <!-- ====== 3. 快捷操作按钮 ====== -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="20dp"
+                android:orientation="horizontal"
+                android:weightSum="3">
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:gravity="center"
+                    android:orientation="vertical">
+                    <com.google.android.material.card.MaterialCardView
+                        android:layout_width="52dp"
+                        android:layout_height="52dp"
+                        app:cardCornerRadius="14dp"
+                        app:cardElevation="0dp"
+                        app:cardBackgroundColor="#E8F5E9"
+                        android:foreground="?attr/selectableItemBackgroundBorderless"
+                        app:strokeWidth="0dp">
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:gravity="center"
+                            android:text="💰"
+                            android:textSize="22sp" />
+                    </com.google.android.material.card.MaterialCardView>
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="记一笔"
+                        android:textColor="#666666"
+                        android:textSize="11sp"
+                        android:layout_marginTop="6dp" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:gravity="center"
+                    android:orientation="vertical">
+                    <com.google.android.material.card.MaterialCardView
+                        android:layout_width="52dp"
+                        android:layout_height="52dp"
+                        app:cardCornerRadius="14dp"
+                        app:cardElevation="0dp"
+                        app:cardBackgroundColor="#FFF3E0"
+                        android:foreground="?attr/selectableItemBackgroundBorderless"
+                        app:strokeWidth="0dp">
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:gravity="center"
+                            android:text="📊"
+                            android:textSize="22sp" />
+                    </com.google.android.material.card.MaterialCardView>
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="统计"
+                        android:textColor="#666666"
+                        android:textSize="11sp"
+                        android:layout_marginTop="6dp" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:gravity="center"
+                    android:orientation="vertical">
+                    <com.google.android.material.card.MaterialCardView
+                        android:layout_width="52dp"
+                        android:layout_height="52dp"
+                        app:cardCornerRadius="14dp"
+                        app:cardElevation="0dp"
+                        app:cardBackgroundColor="#E3F2FD"
+                        android:foreground="?attr/selectableItemBackgroundBorderless"
+                        app:strokeWidth="0dp">
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:gravity="center"
+                            android:text="👤"
+                            android:textSize="22sp" />
+                    </com.google.android.material.card.MaterialCardView>
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="账单"
+                        android:textColor="#666666"
+                        android:textSize="11sp"
+                        android:layout_marginTop="6dp" />
+                </LinearLayout>
+
+            </LinearLayout>
+
+            <!-- ====== 4. 分类饼图卡片（占位） ====== -->
+            <androidx.cardview.widget.CardView
+                android:layout_width="match_parent"
+                android:layout_height="150dp"
+                android:layout_marginTop="20dp"
+                app:cardCornerRadius="16dp"
+                app:cardElevation="3dp"
+                app:cardBackgroundColor="#FFFFFF">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:orientation="horizontal"
+                    android:padding="16dp">
+
+                    <!-- 模拟饼图圆环 -->
+                    <FrameLayout
+                        android:layout_width="110dp"
+                        android:layout_height="110dp"
+                        android:layout_gravity="center_vertical">
+
+                        <View
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:background="@drawable/circle_pie_placeholder" />
+
+                        <FrameLayout
+                            android:layout_width="70dp"
+                            android:layout_height="70dp"
+                            android:layout_gravity="center"
+                            android:background="@drawable/circle_white" />
+
+                    </FrameLayout>
+
+                    <!-- 图例 -->
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical"
+                        android:gravity="center_vertical"
+                        android:layout_marginStart="16dp">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="支出分类占比"
+                            android:textColor="#333333"
+                            android:textSize="13sp"
+                            android:fontFamily="sans-serif-medium"
+                            android:layout_marginBottom="8dp" />
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:weightSum="1"
+                            android:layout_marginBottom="4dp">
+                            <View android:layout_width="8dp" android:layout_height="8dp" android:background="@drawable/circle_legend_food" android:layout_gravity="center_vertical" />
+                            <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="0.5" android:text="餐饮" android:textSize="11sp" android:textColor="#888" android:layout_marginStart="6dp" />
+                            <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="0.5" android:text="35%" android:textSize="11sp" android:textColor="#333" android:gravity="end" android:fontFamily="sans-serif-medium" />
+                        </LinearLayout>
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:weightSum="1"
+                            android:layout_marginBottom="4dp">
+                            <View android:layout_width="8dp" android:layout_height="8dp" android:background="@drawable/circle_legend_transport" android:layout_gravity="center_vertical" />
+                            <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="0.5" android:text="交通" android:textSize="11sp" android:textColor="#888" android:layout_marginStart="6dp" />
+                            <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="0.5" android:text="22%" android:textSize="11sp" android:textColor="#333" android:gravity="end" android:fontFamily="sans-serif-medium" />
+                        </LinearLayout>
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:weightSum="1"
+                            android:layout_marginBottom="4dp">
+                            <View android:layout_width="8dp" android:layout_height="8dp" android:background="@drawable/circle_legend_shopping" android:layout_gravity="center_vertical" />
+                            <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="0.5" android:text="购物" android:textSize="11sp" android:textColor="#888" android:layout_marginStart="6dp" />
+                            <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="0.5" android:text="28%" android:textSize="11sp" android:textColor="#333" android:gravity="end" android:fontFamily="sans-medium" />
+                        </LinearLayout>
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:weightSum="1">
+                            <View android:layout_width="8dp" android:layout_height="8dp" android:background="@drawable/circle_legend_other" android:layout_gravity="center_vertical" />
+                            <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="0.5" android:text="其他" android:textSize="11sp" android:textColor="#888" android:layout_marginStart="6dp" />
+                            <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="0.5" android:text="15%" android:textSize="11sp" android:textColor="#333" android:gravity="end" android:fontFamily="sans-serif-medium" />
+                        </LinearLayout>
+
+                    </LinearLayout>
+
+                </LinearLayout>
+
+            </androidx.cardview.widget.CardView>
+
+            <!-- ====== 5. 最近记录标题 ====== -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="20dp"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="最近记录"
+                    android:textColor="#1A1A2E"
+                    android:textSize="16sp"
+                    android:fontFamily="sans-serif-medium" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="查看全部 →"
+                    android:textColor="#7C4DFF"
+                    android:textSize="12sp"
+                    android:fontFamily="sans-serif-medium"
+                    android:foreground="?attr/selectableItemBackgroundBorderless"
+                    android:paddingHorizontal="4dp"
+                    android:paddingVertical="2dp" />
+            </LinearLayout>
+
+            <!-- ====== 6. 交易记录列表 ====== -->
+            <androidx.cardview.widget.CardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:layout_marginBottom="80dp"
+                app:cardCornerRadius="16dp"
+                app:cardElevation="2dp"
+                app:cardBackgroundColor="#FFFFFF">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical">
+
+                    <!-- 条目 1 -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="60dp"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical"
+                        android:paddingHorizontal="16dp"
+                        android:foreground="?attr/selectableItemBackground">
+                        <TextView
+                            android:layout_width="36dp"
+                            android:layout_height="36dp"
+                            android:gravity="center"
+                            android:text="🍜"
+                            android:textSize="18sp"
+                            android:background="@drawable/bg_icon_food" />
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:orientation="vertical"
+                            android:layout_marginStart="12dp">
+                            <TextView android:text="午餐" android:textSize="14sp" android:textColor="#333" android:fontFamily="sans-serif-medium" />
+                            <TextView android:text="食堂" android:textSize="11sp" android:textColor="#999" android:layout_marginTop="1dp" />
+                        </LinearLayout>
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="-¥28.00"
+                            android:textColor="#C62828"
+                            android:textSize="14sp"
+                            android:fontFamily="sans-serif-medium" />
+                    </LinearLayout>
+
+                    <View android:layout_width="match_parent" android:layout_height="0.5dp" android:background="#F0F0F0" android:layout_marginHorizontal="16dp" />
+
+                    <!-- 条目 2 -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="60dp"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical"
+                        android:paddingHorizontal="16dp"
+                        android:foreground="?attr/selectableItemBackground">
+                        <TextView
+                            android:layout_width="36dp"
+                            android:layout_height="36dp"
+                            android:gravity="center"
+                            android:text="🚇"
+                            android:textSize="18sp"
+                            android:background="@drawable/bg_icon_transport" />
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:orientation="vertical"
+                            android:layout_marginStart="12dp">
+                            <TextView android:text="地铁" android:textSize="14sp" android:textColor="#333" android:fontFamily="sans-serif-medium" />
+                            <TextView android:text="通勤" android:textSize="11sp" android:textColor="#999" android:layout_marginTop="1dp" />
+                        </LinearLayout>
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="-¥4.00"
+                            android:textColor="#C62828"
+                            android:textSize="14sp"
+                            android:fontFamily="sans-serif-medium" />
+                    </LinearLayout>
+
+                    <View android:layout_width="match_parent" android:layout_height="0.5dp" android:background="#F0F0F0" android:layout_marginHorizontal="16dp" />
+
+                    <!-- 条目 3 -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="60dp"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical"
+                        android:paddingHorizontal="16dp"
+                        android:foreground="?attr/selectableItemBackground">
+                        <TextView
+                            android:layout_width="36dp"
+                            android:layout_height="36dp"
+                            android:gravity="center"
+                            android:text="🛒"
+                            android:textSize="18sp"
+                            android:background="@drawable/bg_icon_shopping" />
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:orientation="vertical"
+                            android:layout_marginStart="12dp">
+                            <TextView android:text="超市" android:textSize="14sp" android:textColor="#333" android:fontFamily="sans-serif-medium" />
+                            <TextView android:text="日用品" android:textSize="11sp" android:textColor="#999" android:layout_marginTop="1dp" />
+                        </LinearLayout>
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="-¥156.80"
+                            android:textColor="#C62828"
+                            android:textSize="14sp"
+                            android:fontFamily="sans-serif-medium" />
+                    </LinearLayout>
+
+                    <View android:layout_width="match_parent" android:layout_height="0.5dp" android:background="#F0F0F0" android:layout_marginHorizontal="16dp" />
+
+                    <!-- 条目 4（收入） -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="60dp"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical"
+                        android:paddingHorizontal="16dp"
+                        android:foreground="?attr/selectableItemBackground">
+                        <TextView
+                            android:layout_width="36dp"
+                            android:layout_height="36dp"
+                            android:gravity="center"
+                            android:text="💼"
+                            android:textSize="18sp"
+                            android:background="@drawable/bg_icon_income" />
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:orientation="vertical"
+                            android:layout_marginStart="12dp">
+                            <TextView android:text="工资" android:textSize="14sp" android:textColor="#333" android:fontFamily="sans-serif-medium" />
+                            <TextView android:text="5月薪资" android:textSize="11sp" android:textColor="#999" android:layout_marginTop="1dp" />
+                        </LinearLayout>
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="+¥15,000.00"
+                            android:textColor="#2E7D32"
+                            android:textSize="14sp"
+                            android:fontFamily="sans-serif-medium" />
+                    </LinearLayout>
+
+                </LinearLayout>
+
+            </androidx.cardview.widget.CardView>
+
+        </LinearLayout>
+
+    </androidx.core.widget.NestedScrollView>
+
+    <!-- ====== 底部 FAB 添加按钮 ====== -->
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:id="@+id/fab_add"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|end"
+        android:layout_margin="20dp"
+        android:src="@drawable/ic_add_white"
+        android:contentDescription="添加记录"
+        app:backgroundTint="#7C4DFF"
+        app:fabSize="normal"
+        app:elevation="8dp"
+        android:foreground="?attr/selectableItemBackgroundBorderless" />
+
+    <!-- ====== 底部导航 ====== -->
+    <com.google.android.material.bottomnavigation.BottomNavigationView
+        android:id="@+id/bottom_nav"
+        android:layout_width="match_parent"
+        android:layout_height="56dp"
+        android:layout_gravity="bottom"
+        android:background="@drawable/bg_bottom_nav"
+        app:itemIconTint="@color/bottom_nav_color"
+        app:itemTextColor="@color/bottom_nav_color"
+        app:menu="@menu/menu_bottom_nav"
+        app:labelVisibilityMode="labeled"
+        app:elevation="12dp" />
+
+</androidx.coordinatorlayout.widget.CoordinatorLayout>

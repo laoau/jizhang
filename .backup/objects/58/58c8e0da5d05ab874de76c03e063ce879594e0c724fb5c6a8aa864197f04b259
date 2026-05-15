@@ -1,0 +1,88 @@
+package com.e.jizhnag;
+
+import org.json.JSONException;
+import org.json.JSONObject;
+import java.util.UUID;
+
+/**
+ * 记账记录数据模型
+ */
+public class Record {
+    public static final String TYPE_INCOME = "income";
+    public static final String TYPE_EXPENSE = "expense";
+
+    public String id;
+    public String type;       // income / expense
+    public double amount;
+    public String category;
+    public String note;
+    public String date;       // yyyy-MM-dd
+    public long timestamp;
+
+    public Record() {
+        this.id = UUID.randomUUID().toString();
+        this.timestamp = System.currentTimeMillis();
+    }
+
+    public Record(String type, double amount, String category, String note, String date) {
+        this();
+        this.type = type;
+        this.amount = amount;
+        this.category = category;
+        this.note = note;
+        this.date = date;
+    }
+
+    public JSONObject toJson() {
+        try {
+            JSONObject obj = new JSONObject();
+            obj.put("id", id);
+            obj.put("type", type);
+            obj.put("amount", amount);
+            obj.put("category", category);
+            obj.put("note", note);
+            obj.put("date", date);
+            obj.put("timestamp", timestamp);
+            return obj;
+        } catch (JSONException e) {
+            return new JSONObject();
+        }
+    }
+
+    public static Record fromJson(JSONObject obj) {
+        Record r = new Record();
+        try {
+            r.id = obj.optString("id", r.id);
+            r.type = obj.optString("type", TYPE_EXPENSE);
+            r.amount = obj.optDouble("amount", 0);
+            r.category = obj.optString("category", "其他");
+            r.note = obj.optString("note", "");
+            r.date = obj.optString("date", "");
+            r.timestamp = obj.optLong("timestamp", System.currentTimeMillis());
+        } catch (Exception ignored) {}
+        return r;
+    }
+
+    /** 获取分类对应的emoji图标 */
+    public static String getCategoryEmoji(String category) {
+        switch (category) {
+            case "餐饮": return "🍜";
+            case "交通": return "🚇";
+            case "购物": return "🛒";
+            case "娱乐": return "🎮";
+            case "医疗": return "💊";
+            case "教育": return "📚";
+            case "人情": return "🧧";
+            case "日用": return "🧴";
+            case "服饰": return "👔";
+            case "住房": return "🏠";
+            case "通讯": return "📱";
+            case "工资": return "💼";
+            case "奖金": return "🏆";
+            case "理财": return "📈";
+            case "兼职": return "🛠️";
+            case "红包": return "🧧";
+            default: return "📌";
+        }
+    }
+}

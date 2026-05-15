@@ -1,0 +1,453 @@
+package com.e.jizhnag;
+
+import android.app.AlertDialog;
+import android.os.Bundle;
+import android.text.Editable;
+import android.text.TextWatcher;
+import android.view.Gravity;
+import android.view.LayoutInflater;
+import android.view.View;
+import android.widget.*;
+import androidx.appcompat.app.AppCompatActivity;
+import com.e.jizhnag.databinding.ActivityMainBinding;
+import com.github.mikephil.charting.charts.PieChart;
+import com.github.mikephil.charting.components.Legend;
+import com.github.mikephil.charting.data.*;
+import com.github.mikephil.charting.formatter.PercentFormatter;
+import java.text.SimpleDateFormat;
+import java.util.*;
+
+/**
+ * ========================================
+ * 记账助手 - 主界面
+ * 
+ * 功能：
+ * 1. 显示本月收支概览（结余 / 收入 / 支出）
+ * 2. 支出分类饼图
+ * 3. 最近 10 条记录列表
+ * 4. 点击顶部快捷按钮或 FAB 添加记录
+ * 5. 点击已有记录可删除
+ * ========================================
+ */
+public class MainActivity extends AppCompatActivity {
+
+    // ---- ViewBinding（自动生成，对应 activity_main.xml） ----
+    private ActivityMainBinding binding;
+
+    // ---- 数据管理器（单例） ----
+    private RecordManager recordManager;
+
+    // ---- 饼图控件 ----
+    private PieChart pieChart;
+
+    // ==========================================
+    // Activity 生命周期
+    // ==========================================
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+
+        // 1. 初始化 ViewBinding
+        binding = ActivityMainBinding.inflate(getLayoutInflater());
+        setContentView(binding.getRoot());
+
+        // 2. 获取数据管理器实例
+        recordManager = RecordManager.getInstance(this);
+
+        // 3. 顶部显示今日日期
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd", Locale.CHINA);
+        binding.tvToday.setText(sdf.format(new Date()));
+
+        // 4. 初始化饼图
+        initPieChart();
+
+        // 5. 绑定点击事件
+        //    快捷按钮：支出 / 收入
+        binding.btnAddExpense.setOnClickListener(v -> showAddDialog(false));
+        binding.btnAddIncome.setOnClickListener(v -> showAddDialog(true));
+        //    悬浮按钮：默认弹出"记支出"
+        binding.fabAdd.setOnClickListener(v -> showAddDialog(false));
+
+        // 6. 刷新全部 UI 数据
+        refreshUI();
+    }
+
+    // ==========================================
+    // 饼图相关
+    // ==========================================
+
+    /** 初始化饼图控件（只调用一次） */
+    private void initPieChart() {
+        // 创建饼图对象，添加到布局中的 chart_container
+        pieChart = new PieChart(this);
+        binding.chartContainer.addView(pieChart);
+
+        // ---- 基本配置 ----
+        pieChart.setUsePercentValues(true);          // 显示百分比
+        pieChart.getDescription().setEnabled(false); // 不显示描述文字
+        pieChart.setExtraOffsets(5, 10, 5, 5);       // 边距
+
+        // ---- 中间空心区域（甜甜圈效果） ----
+        pieChart.setDragDecelerationFrictionCoef(0.95f);
+        pieChart.setCenterText("支出\n分类");        // 中间文字
+        pieChart.setCenterTextSize(12f);
+        pieChart.setCenterTextColor(0xFF333333);
+        pieChart.setDrawHoleEnabled(true);           // 启用空心
+        pieChart.setHoleRadius(45f);                  // 空心半径
+        pieChart.setTransparentCircleRadius(50f);    // 透明圈半径
+
+        // ---- 图例（右侧纵向排列） ----
+        Legend l = pieChart.getLegend();
+        l.setVerticalAlignment(Legend.LegendVerticalAlignment.TOP);
+        l.setHorizontalAlignment(Legend.LegendHorizontalAlignment.RIGHT);
+        l.setOrientation(Legend.LegendOrientation.VERTICAL);
+        l.setDrawInside(false);
+        l.setTextSize(10f);
+        l.setXEntrySpace(4f);
+        l.setYEntrySpace(2f);
+
+        // ---- 每个扇区的标签 ----
+        pieChart.setEntryLabelTextSize(10f);
+        pieChart.setEntryLabelColor(0xFF333333);
+        pieChart.setDrawEntryLabels(true);
+
+        // 初次加载数据
+        updatePieChart();
+    }
+
+    /** 刷新饼图数据（从 RecordManager 获取各分类金额） */
+    private void updatePieChart() {
+        // 1. 获取各分类的金额数据
+        Map<String, Double> data = recordManager.getExpenseByCategory();
+
+        // 2. 组装 PieEntry 列表
+        ArrayList<PieEntry> entries = new ArrayList<>();
+        for (Map.Entry<String, Double> entry : data.entrySet()) {
+            if (entry.getValue() > 0) {
+                // PieEntry(金额, 分类名)
+                entries.add(new PieEntry(entry.getValue().floatValue(), entry.getKey()));
+            }
+        }
+
+        // 3. 分配颜色
+        int[] colors = new int[entries.size()];
+        for (int j = 0; j < entries.size(); j++) {
+            colors[j] = getColorForIndex(j);
+        }
+
+        // 4. 创建 DataSet
+        PieDataSet dataSet = new PieDataSet(entries, "");
+        dataSet.setSliceSpace(2f);       // 扇区间隙
+        dataSet.setSelectionShift(4f);   // 选中偏移
+        dataSet.setColors(colors);
+
+        // 5. 绑定到 PieData
+        PieData pieData = new PieData(dataSet);
+        pieData.setValueFormatter(new PercentFormatter(pieChart)); // 百分比格式
+        pieData.setValueTextSize(10f);
+        pieData.setValueTextColor(0xFF333333);
+
+        // 6. 刷新
+        pieChart.setData(pieData);
+        pieChart.highlightValues(null);
+        pieChart.invalidate();  // 重绘
+    }
+
+    /**
+     * 根据索引返回饼图颜色（循环使用 12 色板）
+     * @param index 第几个扇区
+     * @return 颜色 int
+     */
+    private int getColorForIndex(int index) {
+        int[] colors = {
+            0xFFFF6F00,  // 橙
+            0xFF7C4DFF,  // 紫
+            0xFF00BCD4,  // 青
+            0xFF4CAF50,  // 绿
+            0xFFF44336,  // 红
+            0xFF9C27B0,  // 深紫
+            0xFFFF9800,  // 黄橙
+            0xFF607D8B,  // 灰蓝
+            0xFFE91E63,  // 粉红
+            0xFF3F51B5,  // 靛蓝
+            0xFF009688,  // 蓝绿
+            0xFF795548   // 棕
+        };
+        return colors[index % colors.length];
+    }
+
+    // ==========================================
+    // UI 数据刷新
+    // ==========================================
+
+    /** 刷新全部 UI：概览数字 + 饼图 + 记录列表 */
+    private void refreshUI() {
+        // 1. 获取本月统计数据
+        double income  = recordManager.getMonthIncome();
+        double expense = recordManager.getMonthExpense();
+        double balance = recordManager.getMonthBalance();
+
+        // 2. 更新概览卡片
+        binding.tvBalance.setText(formatMoney(balance));
+        binding.tvIncome.setText(formatMoney(income));
+        binding.tvExpense.setText(formatMoney(expense));
+
+        // 3. 更新饼图
+        updatePieChart();
+
+        // 4. 更新记录列表
+        refreshRecords();
+    }
+
+    /** 刷新下方的记录列表（最近 10 条） */
+    private void refreshRecords() {
+        LinearLayout container = binding.recordsContainer;
+        container.removeAllViews();  // 清空旧列表
+
+        List<Record> recent = recordManager.getRecentRecords(10);
+
+        // 若没有记录，显示空状态提示
+        if (recent.isEmpty()) {
+            TextView tv = new TextView(this);
+            tv.setText("暂无记录，点击上方按钮记账");
+            tv.setGravity(Gravity.CENTER);
+            tv.setTextColor(0xFF999999);
+            tv.setTextSize(13);
+            tv.setPadding(0, 24, 0, 24);
+            container.addView(tv);
+            return;
+        }
+
+        // 循环创建每条记录的视图
+        for (int i = 0; i < recent.size(); i++) {
+            container.addView(createRecordItem(recent.get(i), i));
+
+            // 每条记录之间加一条分割线
+            if (i < recent.size() - 1) {
+                View divider = new View(this);
+                divider.setBackgroundColor(0xFFF0F0F0);
+                LinearLayout.LayoutParams dlp = new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT, 1);
+                dlp.setMargins(dp(16), 0, dp(16), 0);
+                divider.setLayoutParams(dlp);
+                container.addView(divider);
+            }
+        }
+    }
+
+    /**
+     * 动态创建单条记账记录的视图
+     * 布局：左侧 emoji 图标 + 中间分类/备注 + 右侧金额
+     * 点击后弹出删除确认框
+     *
+     * @param r     记录数据
+     * @param index 在第几条（未使用，保留）
+     * @return 组装好的 LinearLayout
+     */
+    private View createRecordItem(Record r, int index) {
+        // ---- 根容器（水平排列） ----
+        LinearLayout item = new LinearLayout(this);
+        item.setOrientation(LinearLayout.HORIZONTAL);
+        item.setGravity(Gravity.CENTER_VERTICAL);
+        item.setPadding(dp(16), 0, dp(16), 0);
+
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT, dp(56));
+        item.setLayoutParams(lp);
+
+        // 点击高亮效果
+        item.setForeground(getDrawable(android.R.drawable.list_selector_background));
+
+        // ---- 左侧：分类 emoji 图标 ----
+        TextView icon = new TextView(this);
+        icon.setTextSize(20);
+        icon.setGravity(Gravity.CENTER);
+        icon.setText(Record.getCategoryEmoji(r.category));
+
+        LinearLayout.LayoutParams iconLp = new LinearLayout.LayoutParams(dp(40), dp(40));
+        icon.setLayoutParams(iconLp);
+
+        // ---- 中间：分类名称 + 备注/日期 ----
+        LinearLayout textLayout = new LinearLayout(this);
+        textLayout.setOrientation(LinearLayout.VERTICAL);
+        textLayout.setPadding(dp(12), 0, 0, 0);
+        LinearLayout.LayoutParams textLp = new LinearLayout.LayoutParams(
+            0, LinearLayout.LayoutParams.WRAP_CONTENT, 1);
+        textLayout.setLayoutParams(textLp);
+
+        // 分类名（如"餐饮"）
+        TextView categoryTv = new TextView(this);
+        String cat = (r.category != null) ? r.category : "其他";
+        categoryTv.setText(cat);
+        categoryTv.setTextSize(14);
+        categoryTv.setTextColor(0xFF333333);
+
+        // 备注（如果没有备注，就显示日期）
+        TextView noteTv = new TextView(this);
+        String note = (r.note != null && !r.note.isEmpty()) ? r.note : r.date;
+        noteTv.setText(note);
+        noteTv.setTextSize(11);
+        noteTv.setTextColor(0xFF999999);
+        noteTv.setPadding(0, dp(2), 0, 0);
+
+        textLayout.addView(categoryTv);
+        textLayout.addView(noteTv);
+
+        // ---- 右侧：金额 ----
+        TextView amountTv = new TextView(this);
+        boolean isIncome = Record.TYPE_INCOME.equals(r.type);
+        // 收入前面显示 "+"，支出显示 "-"
+        amountTv.setText((isIncome ? "+" : "-") + formatMoneyRaw(r.amount));
+        amountTv.setTextSize(14);
+        amountTv.setTextColor(isIncome ? 0xFF2E7D32 : 0xFFC62828);
+        // 收入绿色，支出红色
+
+        // ---- 组装 ----
+        item.addView(icon);
+        item.addView(textLayout);
+        item.addView(amountTv);
+
+        // ---- 点击事件：删除记录 ----
+        item.setOnClickListener(v -> {
+            new AlertDialog.Builder(this)
+                .setTitle("删除记录")
+                .setMessage("确定删除这条 " + r.category + " " + formatMoneyRaw(r.amount) + " 的记录？")
+                .setPositiveButton("删除", (d, w) -> {
+                    recordManager.deleteRecord(r.id);  // 从数据源删除
+                    refreshUI();                       // 刷新界面
+                })
+                .setNegativeButton("取消", null)
+                .show();
+        });
+
+        return item;
+    }
+
+    // ==========================================
+    // 添加记账记录（弹窗）
+    // ==========================================
+
+    /**
+     * 弹出记账对话框
+     * @param isIncome true = 记收入，false = 记支出
+     */
+    private void showAddDialog(boolean isIncome) {
+        // 1. 载入弹窗布局
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        View view = LayoutInflater.from(this).inflate(R.layout.dialog_add_record, null);
+        builder.setView(view);
+
+        // 2. 获取弹窗中的控件
+        TextView title       = view.findViewById(R.id.dialog_title);
+        Spinner spinner      = view.findViewById(R.id.spinner_category);
+        EditText etAmount    = view.findViewById(R.id.et_amount);
+        EditText etNote      = view.findViewById(R.id.et_note);
+        TextView tvAmountHint= view.findViewById(R.id.tv_amount_hint);
+        Button btnCancel     = view.findViewById(R.id.btn_cancel);
+        Button btnConfirm    = view.findViewById(R.id.btn_confirm);
+
+        // 用于在匿名内部类中修改的“金额”变量（数组包装才能赋值）
+        final double[] amount = {0};
+
+        // 3. 根据收入/支出调整界面文字
+        if (isIncome) {
+            title.setText("记一笔收入");
+            tvAmountHint.setText("收入金额");
+        } else {
+            title.setText("记一笔支出");
+            tvAmountHint.setText("支出金额");
+        }
+
+        // 4. 分类下拉框：收入 / 支出各自有不同分类列表
+        String[] categories = isIncome ?
+            RecordManager.INCOME_CATEGORIES : RecordManager.EXPENSE_CATEGORIES;
+        ArrayAdapter<String> adapter = new ArrayAdapter<>(this,
+            android.R.layout.simple_spinner_dropdown_item, categories);
+        spinner.setAdapter(adapter);
+
+        // 5. 创建对话框
+        AlertDialog dialog = builder.create();
+
+        // 6. 金额输入监听：实时解析数字
+        etAmount.addTextChangedListener(new TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) {
+                try {
+                    String text = s.toString().replace("¥", "").trim();
+                    amount[0] = text.isEmpty() ? 0 : Double.parseDouble(text);
+                } catch (NumberFormatException e) {
+                    amount[0] = 0;
+                }
+            }
+            @Override
+            public void afterTextChanged(Editable s) {}
+        });
+
+        // 7. 确定按钮
+        btnConfirm.setOnClickListener(v -> {
+            // 校验金额
+            if (amount[0] <= 0) {
+                Toast.makeText(this, "请输入有效金额", Toast.LENGTH_SHORT).show();
+                return;
+            }
+
+            // 获取选中的分类
+            String selectedCategory = categories[spinner.getSelectedItemPosition()];
+            // 获取备注
+            String note = etNote.getText().toString().trim();
+            // 当前日期
+            SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd", Locale.CHINA);
+            String date = sdf.format(new Date());
+
+            // 创建 Record 对象并保存
+            Record r = new Record(
+                isIncome ? Record.TYPE_INCOME : Record.TYPE_EXPENSE,
+                amount[0],
+                selectedCategory,
+                note.isEmpty() ? selectedCategory : note,  // 没写备注就用分类名
+                date
+            );
+            recordManager.addRecord(r);
+
+            // 刷新界面 + 关闭弹窗
+            refreshUI();
+            dialog.dismiss();
+            Toast.makeText(this, "记账成功", Toast.LENGTH_SHORT).show();
+        });
+
+        // 8. 取消按钮
+        btnCancel.setOnClickListener(v -> dialog.dismiss());
+
+        // 9. 显示弹窗
+        dialog.show();
+    }
+
+    // ==========================================
+    // 工具方法
+    // ==========================================
+
+    /** 格式化金额显示：¥ 1234.56（保留两位小数） */
+    private String formatMoney(double value) {
+        return String.format(Locale.CHINA, "¥ %.2f", value);
+    }
+
+    /**
+     * 格式化金额显示（智能去零）
+     * 整数显示 "¥ 100"，有小数显示 "¥ 100.50"
+     */
+    private String formatMoneyRaw(double value) {
+        if (value == (long) value) {
+            return String.format(Locale.CHINA, "¥ %d", (long) value);
+        }
+        return String.format(Locale.CHINA, "¥ %.2f", value);
+    }
+
+    /** dp 转 px（用于动态创建视图时设置尺寸） */
+    private int dp(float dp) {
+        float scale = getResources().getDisplayMetrics().density;
+        return (int) (dp * scale + 0.5f);
+    }
+}

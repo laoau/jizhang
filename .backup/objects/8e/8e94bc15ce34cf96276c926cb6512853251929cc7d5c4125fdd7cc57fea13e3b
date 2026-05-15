@@ -1,0 +1,206 @@
+package com.e.jizhnag;
+
+import android.content.Context;
+import android.content.SharedPreferences;
+import org.json.JSONArray;
+import org.json.JSONObject;
+import java.util.*;
+
+/**
+ * ========================================
+ * 记账数据管理器（单例）
+ * 
+ * 职责：增/删/查记账记录 + 统计汇总
+ * 数据存储方式：SharedPreferences（JSON 字符串）
+ * 相当于一个轻量级的本地数据库
+ * ========================================
+ */
+public class RecordManager {
+
+    // ---------- 常量 ----------
+    /** SharedPreferences 文件名 */
+    private static final String PREFS_NAME = "ledger_data";
+    /** 存储记录列表的 key */
+    private static final String KEY_RECORDS = "records";
+
+    /** 预设的支出分类（用于记账弹窗的分类下拉框） */
+    public static final String[] EXPENSE_CATEGORIES = {
+        "餐饮", "交通", "购物", "娱乐", "医疗", "教育",
+        "人情", "日用", "服饰", "住房", "通讯", "其他"
+    };
+
+    /** 预设的收入分类 */
+    public static final String[] INCOME_CATEGORIES = {
+        "工资", "奖金", "理财", "兼职", "红包", "其他"
+    };
+
+    // ---------- 单例 ----------
+    private static RecordManager instance;
+    private final SharedPreferences prefs;   // 持久化存储
+    private List<Record> records;             // 内存中的记录列表
+
+    // ---------- 构造（私有，单例模式） ----------
+
+    /**
+     * 私有构造
+     * @param context 用于获取 SharedPreferences
+     */
+    private RecordManager(Context context) {
+        prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        records = new ArrayList<>();
+        loadRecords();  // 启动时从本地加载已有数据
+    }
+
+    /**
+     * 获取单例
+     * @param context 上下文（首次调用时必传，之后可传 null）
+     */
+    public static synchronized RecordManager getInstance(Context context) {
+        if (instance == null) {
+            instance = new RecordManager(context.getApplicationContext());
+        }
+        return instance;
+    }
+
+    // ---------- 查询方法 ----------
+
+    /** 返回所有记录（按添加时间降序） */
+    public List<Record> getRecords() {
+        return records;
+    }
+
+    /**
+     * 获取当月（本月）的所有记录
+     * 判断依据：record.date 以 "yyyy-MM" 开头
+     */
+    public List<Record> getMonthRecords() {
+        String today = getToday();
+        String month = today.substring(0, 7); // 例如 "2026-05"
+        List<Record> result = new ArrayList<>();
+        for (Record r : records) {
+            if (r.date != null && r.date.startsWith(month)) {
+                result.add(r);
+            }
+        }
+        return result;
+    }
+
+    /**
+     * 获取最近 N 条记录（按时间降序）
+     * @param limit 最多返回多少条
+     */
+    public List<Record> getRecentRecords(int limit) {
+        List<Record> all = new ArrayList<>(records);
+        // 按时间戳倒排，最新的在前面
+        Collections.sort(all, (a, b) -> Long.compare(b.timestamp, a.timestamp));
+        if (all.size() > limit) {
+            all = all.subList(0, limit);
+        }
+        return all;
+    }
+
+    // ---------- 统计方法 ----------
+
+    /** 当月总收入 */
+    public double getMonthIncome() {
+        double sum = 0;
+        for (Record r : getMonthRecords()) {
+            if (Record.TYPE_INCOME.equals(r.type)) {
+                sum += r.amount;
+            }
+        }
+        return sum;
+    }
+
+    /** 当月总支出 */
+    public double getMonthExpense() {
+        double sum = 0;
+        for (Record r : getMonthRecords()) {
+            if (Record.TYPE_EXPENSE.equals(r.type)) {
+                sum += r.amount;
+            }
+        }
+        return sum;
+    }
+
+    /** 当月结余 = 总收入 - 总支出 */
+    public double getMonthBalance() {
+        return getMonthIncome() - getMonthExpense();
+    }
+
+    /**
+     * 按分类统计当月支出金额
+     * 结果用于饼图展示
+     * @return Map<String, Double>  分类名 -> 金额
+     */
+    public Map<String, Double> getExpenseByCategory() {
+        Map<String, Double> map = new LinkedHashMap<>();
+        for (Record r : getMonthRecords()) {
+            if (Record.TYPE_EXPENSE.equals(r.type)) {
+                String cat = r.category;
+                if (cat == null || cat.isEmpty()) cat = "其他";
+                map.put(cat, map.getOrDefault(cat, 0.0) + r.amount);
+            }
+        }
+        return map;
+    }
+
+    // ---------- 写入方法 ----------
+
+    /**
+     * 添加一条新记录（插到列表最前面）
+     * 会自动持久化到 SharedPreferences
+     */
+    public void addRecord(Record r) {
+        records.add(0, r); // 最新的放最前面
+        saveRecords();
+    }
+
+    /**
+     * 根据 id 删除一条记录
+     */
+    public void deleteRecord(String id) {
+        Iterator<Record> it = records.iterator();
+        while (it.hasNext()) {
+            if (it.next().id.equals(id)) {
+                it.remove();
+                break;
+            }
+        }
+        saveRecords();
+    }
+
+    // ---------- 持久化（内部方法） ----------
+
+    /** 从 SharedPreferences 中读取所有记录，加载到内存 */
+    private void loadRecords() {
+        records.clear();
+        String json = prefs.getString(KEY_RECORDS, "[]");
+        try {
+            JSONArray arr = new JSONArray(json);
+            for (int i = 0; i < arr.length(); i++) {
+                records.add(Record.fromJson(arr.getJSONObject(i)));
+            }
+        } catch (Exception ignored) {
+            // JSON 解析失败就当作空列表
+        }
+        // 按时间戳降序排列（最新的在前）
+        Collections.sort(records, (a, b) -> Long.compare(b.timestamp, a.timestamp));
+    }
+
+    /** 把内存中的记录列表全量写入 SharedPreferences */
+    private void saveRecords() {
+        JSONArray arr = new JSONArray();
+        for (Record r : records) {
+            arr.put(r.toJson());
+        }
+        prefs.edit().putString(KEY_RECORDS, arr.toString()).apply();
+    }
+
+    /** 获取今日日期字符串 yyyy-MM-dd */
+    private String getToday() {
+        java.text.SimpleDateFormat sdf =
+            new java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.CHINA);
+        return sdf.format(new Date());
+    }
+}

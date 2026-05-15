@@ -1,0 +1,343 @@
+package com.e.jizhnag;
+
+import android.app.AlertDialog;
+import android.os.Bundle;
+import android.text.Editable;
+import android.text.TextWatcher;
+import android.view.LayoutInflater;
+import android.view.View;
+import android.widget.*;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.cardview.widget.RoundedBitmapDrawable;
+import com.e.jizhnag.databinding.ActivityMainBinding;
+import com.github.mikephil.charting.charts.PieChart;
+import com.github.mikephil.charting.components.Legend;
+import com.github.mikephil.charting.data.*;
+import com.github.mikephil.charting.formatter.PercentFormatter;
+import com.github.mikephil.charting.utils.ColorTemplate;
+import com.github.mikephil.charting.utils.MPPointF;
+import java.text.SimpleDateFormat;
+import java.util.*;
+
+public class MainActivity extends AppCompatActivity {
+
+    private ActivityMainBinding binding;
+    private RecordManager recordManager;
+    private PieChart pieChart;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+
+        binding = ActivityMainBinding.inflate(getLayoutInflater());
+        setContentView(binding.getRoot());
+
+        recordManager = RecordManager.getInstance(this);
+
+        // 设置今日日期
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd", Locale.CHINA);
+        binding.tvToday.setText(sdf.format(new Date()));
+
+        // 初始化图表
+        initPieChart();
+
+        // 点击事件
+        binding.btnAddExpense.setOnClickListener(v -> showAddDialog(false));
+        binding.btnAddIncome.setOnClickListener(v -> showAddDialog(true));
+        binding.fabAdd.setOnClickListener(v -> showAddDialog(false));
+
+        // 刷新数据
+        refreshUI();
+    }
+
+    /** 初始化饼图 */
+    private void initPieChart() {
+        pieChart = new PieChart(this);
+        binding.chartContainer.addView(pieChart);
+
+        pieChart.setUsePercentValues(true);
+        pieChart.getDescription().setEnabled(false);
+        pieChart.setExtraOffsets(5, 10, 5, 5);
+
+        pieChart.setDragDecelerationFrictionCoef(0.95f);
+        pieChart.setCenterText("支出\n分类");
+        pieChart.setCenterTextSize(12f);
+        pieChart.setCenterTextColor(0xFF333333);
+
+        pieChart.setDrawHoleEnabled(true);
+        pieChart.setHoleRadius(45f);
+        pieChart.setTransparentCircleRadius(50f);
+
+        // 图例
+        Legend l = pieChart.getLegend();
+        l.setVerticalAlignment(Legend.LegendVerticalAlignment.TOP);
+        l.setHorizontalAlignment(Legend.LegendHorizontalAlignment.RIGHT);
+        l.setOrientation(Legend.LegendOrientation.VERTICAL);
+        l.setDrawInside(false);
+        l.setTextSize(10f);
+        l.setXEntrySpace(4f);
+        l.setYEntrySpace(2f);
+
+        pieChart.setEntryLabelTextSize(10f);
+        pieChart.setEntryLabelColor(0xFF333333);
+        pieChart.setDrawEntryLabels(true);
+
+        updatePieChart();
+    }
+
+    /** 更新饼图数据 */
+    private void updatePieChart() {
+        Map<String, Double> data = recordManager.getExpenseByCategory();
+
+        ArrayList<PieEntry> entries = new ArrayList<>();
+        int[] colors = new int[data.size()];
+        int i = 0;
+
+        for (Map.Entry<String, Double> entry : data.entrySet()) {
+            if (entry.getValue() > 0) {
+                entries.add(new PieEntry(entry.getValue().floatValue(), entry.getKey()));
+                colors[i % colors.length] = getColorForIndex(i);
+                i++;
+            }
+        }
+
+        // 处理颜色数组长度
+        if (colors.length == 0) colors = new int[]{0xCCCCCC};
+        int[] finalColors = new int[entries.size()];
+        for (int j = 0; j < entries.size(); j++) {
+            finalColors[j] = getColorForIndex(j);
+        }
+
+        PieDataSet dataSet = new PieDataSet(entries, "");
+        dataSet.setSliceSpace(2f);
+        dataSet.setSelectionShift(4f);
+        dataSet.setColors(finalColors);
+
+        PieData pieData = new PieData(dataSet);
+        pieData.setValueFormatter(new PercentFormatter(pieChart));
+        pieData.setValueTextSize(10f);
+        pieData.setValueTextColor(0xFF333333);
+
+        pieChart.setData(pieData);
+        pieChart.highlightValues(null);
+        pieChart.invalidate();
+    }
+
+    private int getColorForIndex(int index) {
+        int[] colors = {
+            0xFFFF6F00, 0xFF7C4DFF, 0xFF00BCD4, 0xFF4CAF50,
+            0xFFF44336, 0xFF9C27B0, 0xFFFF9800, 0xFF607D8B,
+            0xFFE91E63, 0xFF3F51B5, 0xFF009688, 0xFF795548
+        };
+        return colors[index % colors.length];
+    }
+
+    /** 刷新 UI 数据 */
+    private void refreshUI() {
+        // 统计数据
+        double income = recordManager.getMonthIncome();
+        double expense = recordManager.getMonthExpense();
+        double balance = recordManager.getMonthBalance();
+
+        binding.tvBalance.setText(formatMoney(balance));
+        binding.tvIncome.setText(formatMoney(income));
+        binding.tvExpense.setText(formatMoney(expense));
+
+        // 更新饼图
+        updatePieChart();
+
+        // 更新记录列表
+        refreshRecords();
+    }
+
+    /** 刷新记录列表 */
+    private void refreshRecords() {
+        LinearLayout container = binding.recordsContainer;
+        container.removeAllViews();
+
+        List<Record> recent = recordManager.getRecentRecords(10);
+
+        if (recent.isEmpty()) {
+            TextView tv = new TextView(this);
+            tv.setText("暂无记录，点击上方按钮记账");
+            tv.setGravity(View.TEXT_ALIGNMENT_CENTER);
+            tv.setTextColor(0xFF999999);
+            tv.setTextSize(13);
+            tv.setPadding(0, 24, 0, 24);
+            container.addView(tv);
+            return;
+        }
+
+        for (int i = 0; i < recent.size(); i++) {
+            Record r = recent.get(i);
+            container.addView(createRecordItem(r, i));
+        }
+    }
+
+    /** 创建单条记录视图 */
+    private View createRecordItem(Record r, int index) {
+        LinearLayout item = new LinearLayout(this);
+        item.setOrientation(LinearLayout.HORIZONTAL);
+        item.setGravity(View.TEXT_ALIGNMENT_CENTER_VERTICAL);
+        item.setPadding(dp(16), 0, dp(16), 0);
+
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT, dp(56));
+        item.setLayoutParams(lp);
+
+        // 图标
+        TextView icon = new TextView(this);
+        icon.setTextSize(20);
+        icon.setGravity(View.TEXT_ALIGNMENT_CENTER);
+        icon.setText(Record.getCategoryEmoji(r.category));
+
+        LinearLayout.LayoutParams iconLp = new LinearLayout.LayoutParams(dp(40), dp(40));
+        icon.setLayoutParams(iconLp);
+
+        // 文字区域
+        LinearLayout textLayout = new LinearLayout(this);
+        textLayout.setOrientation(LinearLayout.VERTICAL);
+        textLayout.setPadding(dp(12), 0, 0, 0);
+        LinearLayout.LayoutParams textLp = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1);
+        textLayout.setLayoutParams(textLp);
+
+        TextView categoryTv = new TextView(this);
+        String cat = r.category != null ? r.category : "其他";
+        categoryTv.setText(cat);
+        categoryTv.setTextSize(14);
+        categoryTv.setTextColor(0xFF333333);
+        categoryTv.setTypeface(null, 1);
+
+        TextView noteTv = new TextView(this);
+        String note = (r.note != null && !r.note.isEmpty()) ? r.note : r.date;
+        noteTv.setText(note);
+        noteTv.setTextSize(11);
+        noteTv.setTextColor(0xFF999999);
+        noteTv.setPadding(0, dp(2), 0, 0);
+
+        textLayout.addView(categoryTv);
+        textLayout.addView(noteTv);
+
+        // 金额
+        TextView amountTv = new TextView(this);
+        boolean isIncome = Record.TYPE_INCOME.equals(r.type);
+        amountTv.setText((isIncome ? "+" : "-") + formatMoneyRaw(r.amount));
+        amountTv.setTextSize(14);
+        amountTv.setTextColor(isIncome ? 0xFF2E7D32 : 0xFFC62828);
+        amountTv.setTypeface(null, 1);
+
+        item.addView(icon);
+        item.addView(textLayout);
+        item.addView(amountTv);
+
+        // 点击删除
+        item.setOnClickListener(v -> {
+            new AlertDialog.Builder(this)
+                .setTitle("删除记录")
+                .setMessage("确定删除这条 " + r.category + " " + formatMoneyRaw(r.amount) + " 的记录？")
+                .setPositiveButton("删除", (d, w) -> {
+                    recordManager.deleteRecord(r.id);
+                    refreshUI();
+                })
+                .setNegativeButton("取消", null)
+                .show();
+        });
+
+        return item;
+    }
+
+    /** 弹出添加记账对话框 */
+    private void showAddDialog(boolean isIncome) {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        View view = LayoutInflater.from(this).inflate(R.layout.dialog_add_record, null);
+        builder.setView(view);
+
+        TextView title = view.findViewById(R.id.dialog_title);
+        Spinner spinner = view.findViewById(R.id.spinner_category);
+        EditText etAmount = view.findViewById(R.id.et_amount);
+        EditText etNote = view.findViewById(R.id.et_note);
+        TextView tvAmountHint = view.findViewById(R.id.tv_amount_hint);
+        Button btnCancel = view.findViewById(R.id.btn_cancel);
+        Button btnConfirm = view.findViewById(R.id.btn_confirm);
+
+        final double[] amount = {0};
+
+        // 设置标题
+        if (isIncome) {
+            title.setText("记一笔收入");
+            tvAmountHint.setText("收入金额");
+        } else {
+            title.setText("记一笔支出");
+            tvAmountHint.setText("支出金额");
+        }
+
+        // 分类选择
+        String[] categories = isIncome ? RecordManager.INCOME_CATEGORIES : RecordManager.EXPENSE_CATEGORIES;
+        ArrayAdapter<String> adapter = new ArrayAdapter<>(this,
+            android.R.layout.simple_spinner_dropdown_item, categories);
+        spinner.setAdapter(adapter);
+
+        AlertDialog dialog = builder.create();
+
+        // 金额输入
+        etAmount.addTextChangedListener(new TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) {
+                try {
+                    String text = s.toString().replace("¥", "").trim();
+                    amount[0] = text.isEmpty() ? 0 : Double.parseDouble(text);
+                } catch (NumberFormatException e) {
+                    amount[0] = 0;
+                }
+            }
+            @Override
+            public void afterTextChanged(Editable s) {}
+        });
+
+        btnConfirm.setOnClickListener(v -> {
+            if (amount[0] <= 0) {
+                Toast.makeText(this, "请输入有效金额", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            String selectedCategory = categories[spinner.getSelectedItemPosition()];
+            String note = etNote.getText().toString().trim();
+
+            SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd", Locale.CHINA);
+            String date = sdf.format(new Date());
+
+            Record r = new Record(
+                isIncome ? Record.TYPE_INCOME : Record.TYPE_EXPENSE,
+                amount[0],
+                selectedCategory,
+                note.isEmpty() ? selectedCategory : note,
+                date
+            );
+            recordManager.addRecord(r);
+            refreshUI();
+            dialog.dismiss();
+            Toast.makeText(this, "记账成功", Toast.LENGTH_SHORT).show();
+        });
+
+        btnCancel.setOnClickListener(v -> dialog.dismiss());
+
+        dialog.show();
+    }
+
+    private String formatMoney(double value) {
+        return String.format(Locale.CHINA, "¥ %.2f", value);
+    }
+
+    private String formatMoneyRaw(double value) {
+        if (value == (long) value) {
+            return String.format(Locale.CHINA, "¥ %d", (long) value);
+        }
+        return String.format(Locale.CHINA, "¥ %.2f", value);
+    }
+
+    private int dp(float dp) {
+        float scale = getResources().getDisplayMetrics().density;
+        return (int) (dp * scale + 0.5f);
+    }
+}

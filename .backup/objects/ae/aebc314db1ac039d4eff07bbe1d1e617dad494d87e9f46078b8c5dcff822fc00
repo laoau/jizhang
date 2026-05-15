@@ -1,0 +1,29 @@
+package com.e.jizhnag
+
+import android.os.Bundle
+import androidx.appcompat.app.AppCompatActivity
+import com.e.jizhnag.databinding.ActivityMainBinding
+import java.text.SimpleDateFormat
+import java.util.*
+
+class MainActivity : AppCompatActivity() {
+
+    private lateinit var binding: ActivityMainBinding
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+
+        // 使用 ViewBinding
+        binding = ActivityMainBinding.inflate(layoutInflater)
+        setContentView(binding.root)
+
+        // 设置今日日期
+        val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.CHINA)
+        binding.tvToday.text = sdf.format(Date())
+
+        // FAB 点击事件（占位）
+        binding.fabAdd.setOnClickListener {
+            // TODO: 添加记账记录
+        }
+    }
+}

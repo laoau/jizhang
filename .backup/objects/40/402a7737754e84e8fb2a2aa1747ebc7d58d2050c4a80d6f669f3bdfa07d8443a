@@ -1,0 +1,146 @@
+package com.e.jizhnag;
+
+import android.content.Context;
+import android.content.SharedPreferences;
+import org.json.JSONArray;
+import org.json.JSONObject;
+import java.util.*;
+
+/**
+ * 记账数据管理器 - 使用 SharedPreferences 持久化
+ */
+public class RecordManager {
+    private static final String PREFS_NAME = "ledger_data";
+    private static final String KEY_RECORDS = "records";
+    private static RecordManager instance;
+    private final SharedPreferences prefs;
+    private List<Record> records;
+
+    /** 预设的支出分类 */
+    public static final String[] EXPENSE_CATEGORIES = {
+        "餐饮", "交通", "购物", "娱乐", "医疗", "教育", "人情", "日用", "服饰", "住房", "通讯", "其他"
+    };
+
+    /** 预设的收入分类 */
+    public static final String[] INCOME_CATEGORIES = {
+        "工资", "奖金", "理财", "兼职", "红包", "其他"
+    };
+
+    private RecordManager(Context context) {
+        prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        records = new ArrayList<>();
+        loadRecords();
+    }
+
+    public static synchronized RecordManager getInstance(Context context) {
+        if (instance == null) {
+            instance = new RecordManager(context.getApplicationContext());
+        }
+        return instance;
+    }
+
+    public List<Record> getRecords() {
+        return records;
+    }
+
+    /** 获取当月记录 */
+    public List<Record> getMonthRecords() {
+        String today = getToday();
+        String month = today.substring(0, 7); // yyyy-MM
+        List<Record> result = new ArrayList<>();
+        for (Record r : records) {
+            if (r.date != null && r.date.startsWith(month)) {
+                result.add(r);
+            }
+        }
+        return result;
+    }
+
+    /** 获取最近 N 条记录 */
+    public List<Record> getRecentRecords(int limit) {
+        List<Record> all = new ArrayList<>(records);
+        Collections.sort(all, (a, b) -> Long.compare(b.timestamp, a.timestamp));
+        if (all.size() > limit) all = all.subList(0, limit);
+        return all;
+    }
+
+    /** 当月总收入 */
+    public double getMonthIncome() {
+        double sum = 0;
+        for (Record r : getMonthRecords()) {
+            if (Record.TYPE_INCOME.equals(r.type)) sum += r.amount;
+        }
+        return sum;
+    }
+
+    /** 当月总支出 */
+    public double getMonthExpense() {
+        double sum = 0;
+        for (Record r : getMonthRecords()) {
+            if (Record.TYPE_EXPENSE.equals(r.type)) sum += r.amount;
+        }
+        return sum;
+    }
+
+    /** 当月结余 */
+    public double getMonthBalance() {
+        return getMonthIncome() - getMonthExpense();
+    }
+
+    /** 按分类统计当月支出 */
+    public Map<String, Double> getExpenseByCategory() {
+        Map<String, Double> map = new LinkedHashMap<>();
+        for (Record r : getMonthRecords()) {
+            if (Record.TYPE_EXPENSE.equals(r.type)) {
+                String cat = r.category;
+                if (cat == null || cat.isEmpty()) cat = "其他";
+                map.put(cat, map.getOrDefault(cat, 0.0) + r.amount);
+            }
+        }
+        return map;
+    }
+
+    /** 添加记录 */
+    public void addRecord(Record r) {
+        records.add(0, r); // 最新的放前面
+        saveRecords();
+    }
+
+    /** 删除记录 */
+    public void deleteRecord(String id) {
+        Iterator<Record> it = records.iterator();
+        while (it.hasNext()) {
+            if (it.next().id.equals(id)) {
+                it.remove();
+                break;
+            }
+        }
+        saveRecords();
+    }
+
+    private void loadRecords() {
+        records.clear();
+        String json = prefs.getString(KEY_RECORDS, "[]");
+        try {
+            JSONArray arr = new JSONArray(json);
+            for (int i = 0; i < arr.length(); i++) {
+                records.add(Record.fromJson(arr.getJSONObject(i)));
+            }
+        } catch (Exception ignored) {}
+        // 按时间降序
+        Collections.sort(records, (a, b) -> Long.compare(b.timestamp, a.timestamp));
+    }
+
+    private void saveRecords() {
+        JSONArray arr = new JSONArray();
+        for (Record r : records) {
+            arr.put(r.toJson());
+        }
+        prefs.edit().putString(KEY_RECORDS, arr.toString()).apply();
+    }
+
+    private String getToday() {
+        java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.CHINA);
+        return sdf.format(new Date());
+    }
+}
