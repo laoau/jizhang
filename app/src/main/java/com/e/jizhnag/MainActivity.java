@@ -1,10 +1,12 @@
 package com.e.jizhnag;
 
 import android.app.AlertDialog;
+import android.app.DatePickerDialog;
 import android.content.ContentValues;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
+import android.graphics.Typeface;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -15,6 +17,11 @@ import android.text.TextWatcher;
 import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.View;
+import android.view.animation.AlphaAnimation;
+import android.view.animation.Animation;
+import android.view.animation.AnimationSet;
+import android.view.animation.DecelerateInterpolator;
+import android.view.animation.TranslateAnimation;
 import android.widget.*;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
@@ -41,6 +48,7 @@ import java.util.*;
  * 3. 最近 10 条记录列表（每条显示日期）
  * 4. 点击顶部快捷按钮或 FAB 添加记录
  * 5. 点击已有记录可删除
+ * 6. 统计弹窗查看详细数据
  */
 public class MainActivity extends AppCompatActivity {
 
@@ -50,6 +58,10 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        // 启用 Activity 过渡动画
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            getWindow().setEnterTransition(null); // 使用默认 fade
+        }
 
         binding = ActivityMainBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
@@ -62,16 +74,81 @@ public class MainActivity extends AppCompatActivity {
         setupPieChart();
         setupLineChart();
 
+        // 顶部快捷按钮
         binding.btnAddExpense.setOnClickListener(v -> showAddDialog(false));
         binding.btnAddIncome.setOnClickListener(v -> showAddDialog(true));
+        // ====== 🎯 原来缺失的统计按钮 ======
+        binding.btnShowStats.setOnClickListener(v -> showStatsDialog());
+
+        // FAB
         binding.fabAdd.setOnClickListener(v -> showAddDialog(false));
 
         // "查看全部"跳转到全部记录页面
         binding.btnViewAll.setOnClickListener(v -> {
-            startActivity(new Intent(this, AllRecordsActivity.class));
+            Intent intent = new Intent(this, AllRecordsActivity.class);
+            startActivity(intent);
+            // 滑动进入动画
+            overridePendingTransition(android.R.anim.slide_in_left, android.R.anim.fade_out);
         });
 
         refreshUI();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        // 从 AllRecordsActivity 返回时刷新数据
+        refreshUI();
+    }
+
+    // ==========================================
+    // 🎯 统计弹窗
+    // ==========================================
+
+    private void showStatsDialog() {
+        double income = recordManager.getMonthIncome();
+        double expense = recordManager.getMonthExpense();
+        double balance = recordManager.getMonthBalance();
+        Map<String, Double> categoryData = recordManager.getExpenseByCategory();
+
+        // 构建统计内容
+        StringBuilder sb = new StringBuilder();
+        sb.append("📊 本月统计\n\n");
+        sb.append("💰 总收入：").append(formatMoney(income)).append("\n");
+        sb.append("💸 总支出：").append(formatMoney(expense)).append("\n");
+        sb.append("📋 结　余：").append(formatMoney(balance)).append("\n\n");
+
+        if (!categoryData.isEmpty()) {
+            sb.append("📂 支出分类占比：\n");
+            // 按金额降序排列
+            List<Map.Entry<String, Double>> sorted = new ArrayList<>(categoryData.entrySet());
+            sorted.sort((a, b) -> Double.compare(b.getValue(), a.getValue()));
+
+            for (Map.Entry<String, Double> entry : sorted) {
+                String emoji = Record.getCategoryEmoji(entry.getKey());
+                double pct = expense > 0 ? (entry.getValue() / expense * 100) : 0;
+                sb.append("  ")
+                  .append(emoji).append(" ").append(entry.getKey())
+                  .append("：").append(formatMoney(entry.getValue()))
+                  .append(" (").append(String.format(Locale.CHINA, "%.1f%%", pct)).append(")\n");
+            }
+        } else {
+            sb.append("暂无支出记录");
+        }
+
+        int recordCount = recordManager.getMonthRecords().size();
+        sb.append("\n📝 本月共 ").append(recordCount).append(" 条记录");
+
+        new AlertDialog.Builder(this)
+            .setTitle("📊 本月统计")
+            .setMessage(sb.toString())
+            .setPositiveButton("知道了", null)
+            .setNeutralButton("查看全部记录", (d, w) -> {
+                Intent intent = new Intent(this, AllRecordsActivity.class);
+                startActivity(intent);
+                overridePendingTransition(android.R.anim.slide_in_left, android.R.anim.fade_out);
+            })
+            .show();
     }
 
     // ==========================================
@@ -94,6 +171,8 @@ public class MainActivity extends AppCompatActivity {
         pieChart.setDrawHoleEnabled(true);
         pieChart.setHoleRadius(45f);
         pieChart.setTransparentCircleRadius(50f);
+        // 开启动画
+        pieChart.animateY(800);
 
         Legend l = pieChart.getLegend();
         l.setVerticalAlignment(Legend.LegendVerticalAlignment.TOP);
@@ -237,10 +316,12 @@ public class MainActivity extends AppCompatActivity {
         ArrayList<String> labels = new ArrayList<>();
         int index = 0;
         for (Map.Entry<String, Double> entry : dailyData.entrySet()) {
-            // 只取日期中的日，如 "05-15" 取 "15"
+            // 取日期中的日，如 "2026-05-15" → "15日"
             String day = entry.getKey();
-            if (day.length() >= 8) {
-                labels.add(day.substring(8)); // "2026-05-15" -> "15"
+            if (day.length() >= 10) {
+                labels.add(day.substring(8) + "日"); // "2026-05-15" -> "15日"
+            } else if (day.length() >= 8) {
+                labels.add(day.substring(8)); // fallback
             } else {
                 labels.add(day);
             }
@@ -250,7 +331,7 @@ public class MainActivity extends AppCompatActivity {
 
         LineDataSet dataSet = new LineDataSet(entries, "每日支出");
         dataSet.setColor(0xFF7C4DFF);
-        dataSet.setLineWidth(2f);
+        dataSet.setLineWidth(2.5f);
         dataSet.setCircleColor(0xFF7C4DFF);
         dataSet.setCircleRadius(4f);
         dataSet.setDrawCircleHole(true);
@@ -300,6 +381,61 @@ public class MainActivity extends AppCompatActivity {
         refreshRecords();
     }
 
+    // ==========================================
+    // 📅 日期辅助方法
+    // ==========================================
+
+    /**
+     * 创建日期标题头 View（按天分组时使用）
+     * @param dateStr     日期字符串 yyyy-MM-dd
+     * @param dayIncome   当天总收入
+     * @param dayExpense  当天总支出
+     */
+    private View createDateHeader(String dateStr, double dayIncome, double dayExpense) {
+        LinearLayout header = new LinearLayout(this);
+        header.setOrientation(LinearLayout.HORIZONTAL);
+        header.setGravity(Gravity.CENTER_VERTICAL);
+        header.setPadding(dp(16), dp(14), dp(16), dp(6));
+        header.setLayoutParams(new LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+
+        // 小圆点装饰
+        View dot = new View(this);
+        dot.setBackgroundResource(R.drawable.circle_green);
+        LinearLayout.LayoutParams dotLp = new LinearLayout.LayoutParams(dp(6), dp(6));
+        dot.setLayoutParams(dotLp);
+
+        // 日期文字（使用 RecordManager 的统一工具方法）
+        TextView tvDate = new TextView(this);
+        tvDate.setText(RecordManager.getDateDisplayName(dateStr));
+        tvDate.setTextSize(13);
+        tvDate.setTypeface(null, Typeface.BOLD);
+        tvDate.setTextColor(ContextCompat.getColor(this, R.color.text_secondary));
+        tvDate.setPadding(dp(8), 0, 0, 0);
+
+        // 小计金额（通过参数传入，无需再遍历）
+        TextView tvSubtotal = new TextView(this);
+        if (dayExpense > 0 || dayIncome > 0) {
+            StringBuilder sb = new StringBuilder();
+            if (dayIncome > 0) sb.append("+").append(formatMoneyRaw(dayIncome)).append("  ");
+            if (dayExpense > 0) sb.append("-").append(formatMoneyRaw(dayExpense));
+            tvSubtotal.setText(sb.toString());
+        }
+        tvSubtotal.setTextSize(11);
+        tvSubtotal.setTextColor(ContextCompat.getColor(this, R.color.text_hint));
+        tvSubtotal.setGravity(Gravity.END);
+
+        LinearLayout.LayoutParams subtotalLp = new LinearLayout.LayoutParams(
+            0, LinearLayout.LayoutParams.WRAP_CONTENT, 1);
+        tvSubtotal.setLayoutParams(subtotalLp);
+
+        header.addView(dot);
+        header.addView(tvDate);
+        header.addView(tvSubtotal);
+
+        return header;
+    }
+
     private void refreshRecords() {
         LinearLayout container = binding.recordsContainer;
         container.removeAllViews();
@@ -308,26 +444,116 @@ public class MainActivity extends AppCompatActivity {
 
         if (recent.isEmpty()) {
             TextView tv = new TextView(this);
-            tv.setText("暂无记录，点击上方按钮记账");
+            tv.setText("暂无记录，点击上方按钮记账 ✏️");
             tv.setGravity(Gravity.CENTER);
             tv.setTextColor(ContextCompat.getColor(this, R.color.text_hint));
             tv.setTextSize(13);
-            tv.setPadding(0, 24, 0, 24);
+            tv.setPadding(0, 32, 0, 32);
             container.addView(tv);
             return;
         }
 
-        for (int i = 0; i < recent.size(); i++) {
-            container.addView(createRecordItem(recent.get(i)));
+        // ====== 按日期分组（保留插入顺序） ======
+        LinkedHashMap<String, List<Record>> grouped = new LinkedHashMap<>();
+        for (Record r : recent) {
+            String d = (r.getDate() != null) ? r.getDate() : "未知日期";
+            if (!grouped.containsKey(d)) {
+                grouped.put(d, new ArrayList<Record>());
+            }
+            grouped.get(d).add(r);
+        }
 
-            if (i < recent.size() - 1) {
-                View divider = new View(this);
-                divider.setBackgroundColor(ContextCompat.getColor(this, R.color.card_stroke));
-                LinearLayout.LayoutParams dlp = new LinearLayout.LayoutParams(
+        // ⚡ 一次遍历：预计算全部记录的每日汇总（避免 createDateHeader 中重复遍历）
+        Map<String, double[]> dailyTotals = new HashMap<>(); // [0]=income, [1]=expense
+        for (Record r : recordManager.getRecords()) {
+            String d = (r.getDate() != null) ? r.getDate() : "未知日期";
+            double[] t = dailyTotals.get(d);
+            if (t == null) {
+                t = new double[2];
+                dailyTotals.put(d, t);
+            }
+            if (Record.TYPE_INCOME.equals(r.getType())) t[0] += r.getAmount();
+            else t[1] += r.getAmount();
+        }
+
+        int animDelay = 0;
+        boolean isFirstGroup = true;
+
+        for (Map.Entry<String, List<Record>> entry : grouped.entrySet()) {
+            // ----- 组间分割线（除了第一组） -----
+            if (!isFirstGroup) {
+                View groupDivider = new View(this);
+                groupDivider.setBackgroundColor(ContextCompat.getColor(this, R.color.card_stroke));
+                LinearLayout.LayoutParams gdlp = new LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.MATCH_PARENT, 1);
-                dlp.setMargins(dp(16), 0, dp(16), 0);
-                divider.setLayoutParams(dlp);
-                container.addView(divider);
+                groupDivider.setLayoutParams(gdlp);
+                container.addView(groupDivider);
+
+                // 分割线也带淡入动画
+                AlphaAnimation ga = new AlphaAnimation(0f, 1f);
+                ga.setDuration(200);
+                ga.setStartOffset(animDelay);
+                groupDivider.startAnimation(ga);
+            }
+            isFirstGroup = false;
+
+            // ----- 日期标题头（从预计算的 dailyTotals 取值，无需遍历） -----
+            String dateKey = entry.getKey();
+            double[] totals = dailyTotals.get(dateKey);
+            double dayIncome = totals != null ? totals[0] : 0;
+            double dayExpense = totals != null ? totals[1] : 0;
+            View header = createDateHeader(dateKey, dayIncome, dayExpense);
+            container.addView(header);
+
+            AnimationSet headerAnim = new AnimationSet(true);
+            headerAnim.setInterpolator(new DecelerateInterpolator());
+            headerAnim.setStartOffset(animDelay);
+            AlphaAnimation ha = new AlphaAnimation(0f, 1f);
+            ha.setDuration(300);
+            TranslateAnimation ht = new TranslateAnimation(
+                Animation.RELATIVE_TO_SELF, 0.15f,
+                Animation.RELATIVE_TO_SELF, 0f,
+                Animation.RELATIVE_TO_SELF, 0f,
+                Animation.RELATIVE_TO_SELF, 0f);
+            ht.setDuration(300);
+            headerAnim.addAnimation(ha);
+            headerAnim.addAnimation(ht);
+            header.startAnimation(headerAnim);
+            animDelay += 40;
+
+            // ----- 当天记录 -----
+            List<Record> dayRecords = entry.getValue();
+            for (int i = 0; i < dayRecords.size(); i++) {
+                View itemView = createRecordItem(dayRecords.get(i));
+                container.addView(itemView);
+
+                // ✨ 入场动画
+                AnimationSet anim = new AnimationSet(true);
+                anim.setInterpolator(new DecelerateInterpolator());
+                anim.setStartOffset(animDelay);
+                AlphaAnimation alpha = new AlphaAnimation(0f, 1f);
+                alpha.setDuration(300);
+                TranslateAnimation translate = new TranslateAnimation(
+                    Animation.RELATIVE_TO_SELF, 0.3f,
+                    Animation.RELATIVE_TO_SELF, 0f,
+                    Animation.RELATIVE_TO_SELF, 0f,
+                    Animation.RELATIVE_TO_SELF, 0f);
+                translate.setDuration(300);
+                anim.addAnimation(alpha);
+                anim.addAnimation(translate);
+                itemView.startAnimation(anim);
+                animDelay += 40;
+
+                // ----- 组内分割线 -----
+                if (i < dayRecords.size() - 1) {
+                    View divider = new View(this);
+                    divider.setBackgroundColor(ContextCompat.getColor(this, R.color.card_stroke));
+                    LinearLayout.LayoutParams dlp = new LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT, 1);
+                    dlp.setMargins(dp(16), 0, dp(16), 0);
+                    divider.setLayoutParams(dlp);
+                    container.addView(divider);
+                }
             }
         }
     }
@@ -342,13 +568,11 @@ public class MainActivity extends AppCompatActivity {
             LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
         item.setLayoutParams(lp);
 
-        item.setForeground(getDrawable(android.R.drawable.list_selector_background));
-
         // 左侧 emoji
         TextView icon = new TextView(this);
         icon.setTextSize(22);
         icon.setGravity(Gravity.CENTER);
-        icon.setText(Record.getCategoryEmoji(r.category));
+        icon.setText(Record.getCategoryEmoji(r.getCategory()));
         LinearLayout.LayoutParams iconLp = new LinearLayout.LayoutParams(dp(44), dp(44));
         icon.setLayoutParams(iconLp);
 
@@ -361,25 +585,38 @@ public class MainActivity extends AppCompatActivity {
         textLayout.setLayoutParams(textLp);
 
         TextView categoryTv = new TextView(this);
-        String cat = (r.category != null) ? r.category : "其他";
+        String cat = (r.getCategory() != null) ? r.getCategory() : "其他";
         categoryTv.setText(cat);
         categoryTv.setTextSize(15);
         categoryTv.setTextColor(ContextCompat.getColor(this, R.color.text_primary));
 
+        // 备注（如果有且不同于分类名）
+        boolean hasNote = r.getNote() != null && !r.getNote().isEmpty() && !r.getNote().equals(r.getCategory());
+        if (hasNote) {
+            TextView noteTv = new TextView(this);
+            noteTv.setText(r.getNote());
+            noteTv.setTextSize(11);
+            noteTv.setTextColor(ContextCompat.getColor(this, R.color.text_hint));
+            noteTv.setPadding(0, dp(2), 0, 0);
+            noteTv.setSingleLine(true);
+            textLayout.addView(noteTv);
+        }
+
         TextView dateTv = new TextView(this);
-        String date = (r.date != null) ? r.date : "";
+        String date = (r.getDate() != null) ? r.getDate() : "";
         dateTv.setText(date);
         dateTv.setTextSize(11);
         dateTv.setTextColor(ContextCompat.getColor(this, R.color.text_hint));
-        dateTv.setPadding(0, dp(3), 0, 0);
+        dateTv.setPadding(0, dp(2), 0, 0);
 
         textLayout.addView(categoryTv);
+        // 备注在分类下面、日期上面
         textLayout.addView(dateTv);
 
         // 右侧金额
         TextView amountTv = new TextView(this);
-        boolean isIncome = Record.TYPE_INCOME.equals(r.type);
-        amountTv.setText((isIncome ? "+" : "-") + formatMoneyRaw(r.amount));
+        boolean isIncome = Record.TYPE_INCOME.equals(r.getType());
+        amountTv.setText((isIncome ? "+" : "-") + formatMoneyRaw(r.getAmount()));
         amountTv.setTextSize(15);
         amountTv.setTextColor(ContextCompat.getColor(this,
             isIncome ? R.color.income_green : R.color.expense_red));
@@ -392,9 +629,9 @@ public class MainActivity extends AppCompatActivity {
         item.setOnClickListener(v -> {
             new AlertDialog.Builder(this)
                 .setTitle("删除记录")
-                .setMessage("确定删除这条 " + r.category + " " + formatMoneyRaw(r.amount) + " 的记录？")
+                .setMessage("确定删除这条 " + r.getCategory() + " " + formatMoneyRaw(r.getAmount()) + " 的记录？")
                 .setPositiveButton("删除", (d, w) -> {
-                    recordManager.deleteRecord(r.id);
+                    recordManager.deleteRecord(r.getId());
                     refreshUI();
                 })
                 .setNegativeButton("取消", null)
@@ -408,6 +645,10 @@ public class MainActivity extends AppCompatActivity {
     // 记账弹窗
     // ==========================================
 
+    // ==========================================
+    // 记账弹窗（支持遗漏补记账 - 可选日期）
+    // ==========================================
+
     private void showAddDialog(boolean isIncome) {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         View view = LayoutInflater.from(this).inflate(R.layout.dialog_add_record, null);
@@ -418,16 +659,58 @@ public class MainActivity extends AppCompatActivity {
         EditText etAmount    = view.findViewById(R.id.et_amount);
         EditText etNote      = view.findViewById(R.id.et_note);
         TextView tvAmountHint= view.findViewById(R.id.tv_amount_hint);
+        TextView tvSelectedDate = view.findViewById(R.id.tv_selected_date);
+        TextView btnPickDate = view.findViewById(R.id.btn_pick_date);
         Button btnCancel     = view.findViewById(R.id.btn_cancel);
         Button btnConfirm    = view.findViewById(R.id.btn_confirm);
+
+        // 用于记录选中的日期（默认今天）
+        final Calendar selectedCal = Calendar.getInstance();
+        final SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd", Locale.CHINA);
+        final SimpleDateFormat displayFormat = new SimpleDateFormat("yyyy年M月d日", Locale.CHINA);
+
+        // 更新日期显示
+        Runnable updateDateDisplay = () -> {
+            String dateStr = dateFormat.format(selectedCal.getTime());
+            String display = RecordManager.getDateDisplayName(dateStr);
+            boolean isToday = RecordManager.getTodayString().equals(dateStr);
+            if (isToday) {
+                tvSelectedDate.setText("今天 · " + display);
+            } else {
+                tvSelectedDate.setText(displayFormat.format(selectedCal.getTime()));
+            }
+            tvSelectedDate.setTextColor(ContextCompat.getColor(this,
+                isToday ? R.color.text_hint : R.color.text_primary));
+        };
+        updateDateDisplay.run();
+
+        View.OnClickListener pickDate = v -> {
+            int year = selectedCal.get(Calendar.YEAR);
+            int month = selectedCal.get(Calendar.MONTH);
+            int day = selectedCal.get(Calendar.DAY_OF_MONTH);
+
+            DatePickerDialog datePicker = new DatePickerDialog(this,
+                (view1, y, m, d) -> {
+                    selectedCal.set(Calendar.YEAR, y);
+                    selectedCal.set(Calendar.MONTH, m);
+                    selectedCal.set(Calendar.DAY_OF_MONTH, d);
+                    updateDateDisplay.run();
+                },
+                year, month, day);
+            // 不能选未来日期
+            datePicker.getDatePicker().setMaxDate(System.currentTimeMillis());
+            datePicker.show();
+        };
+        btnPickDate.setOnClickListener(pickDate);
+        tvSelectedDate.setOnClickListener(pickDate);
 
         final double[] amount = {0};
 
         if (isIncome) {
-            title.setText("记一笔收入");
+            title.setText("💰 记一笔收入");
             tvAmountHint.setText("收入金额");
         } else {
-            title.setText("记一笔支出");
+            title.setText("💸 记一笔支出");
             tvAmountHint.setText("支出金额");
         }
 
@@ -462,8 +745,7 @@ public class MainActivity extends AppCompatActivity {
             }
             String selectedCategory = categories[spinner.getSelectedItemPosition()];
             String note = etNote.getText().toString().trim();
-            SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd", Locale.CHINA);
-            String date = sdf.format(new Date());
+            String date = dateFormat.format(selectedCal.getTime());
 
             Record r = new Record(
                 isIncome ? Record.TYPE_INCOME : Record.TYPE_EXPENSE,
@@ -473,7 +755,7 @@ public class MainActivity extends AppCompatActivity {
             recordManager.addRecord(r);
             refreshUI();
             dialog.dismiss();
-            Toast.makeText(this, "记账成功", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "✅ 记账成功", Toast.LENGTH_SHORT).show();
         });
 
         btnCancel.setOnClickListener(v -> dialog.dismiss());
@@ -542,7 +824,7 @@ public class MainActivity extends AppCompatActivity {
             }
 
             if (savedUrl != null) {
-                Toast.makeText(this, chartName + " 已保存到相册", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, chartName + " 已保存到相册 📸", Toast.LENGTH_SHORT).show();
             }
         } catch (Exception e) {
             Toast.makeText(this, "保存失败: " + e.getMessage(), Toast.LENGTH_SHORT).show();

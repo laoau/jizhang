@@ -1,4 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-
+    <!-- 夜间模式配色 -->
+    <color name="primary">#7C4DFF</color>
+    <color name="primary_variant">#651FFF</color>
+    <color name="primary_dark">#512DA8</color>
+    <color name="secondary">#FF6F00</color>
+    <color name="background">#121212</color>
+    <color name="surface">#1E1E2E</color>
+    <color name="card_stroke">#2A2A3E</color>
+    <color name="text_primary">#E0E0E0</color>
+    <color name="text_secondary">#AAAAAA</color>
+    <color name="text_hint">#777777</color>
+    <color name="income_green">#66BB6A</color>
+    <color name="expense_red">#EF5350</color>
+    <color name="header_start">#5C3DFF</color>
+    <color name="header_center">#3D5AFE</color>
+    <color name="header_end">#2979FF</color>
 </resources>

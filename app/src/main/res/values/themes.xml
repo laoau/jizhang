@@ -1,6 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/tools">
-  <style name="Base.AppTheme" parent="Theme.Material3.DayNight.NoActionBar">
-  </style>
+    <style name="Base.AppTheme" parent="Theme.Material3.DayNight.NoActionBar">
+        <!-- 状态栏透明，让渐变背景延伸上去 -->
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@color/surface</item>
+        <!-- 浅色状态栏图标（白色图标在紫色背景上可见） -->
+        <item name="android:windowLightStatusBar" tools:targetApi="23">false</item>
+        <!-- Activity 过渡动画 -->
+        <item name="android:windowActivityTransitions" tools:targetApi="21">true</item>
+        <item name="android:windowEnterTransition">@android:transition/fade</item>
+        <item name="android:windowExitTransition">@android:transition/fade</item>
+    </style>
 
-  <style name="AppTheme" parent="Base.AppTheme" />
+    <style name="AppTheme" parent="Base.AppTheme" />
 </resources>

@@ -4,7 +4,8 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:background="@color/background">
+    android:background="@color/background"
+    android:fitsSystemWindows="true">
 
     <!-- 顶部标题栏 -->
     <com.google.android.material.appbar.MaterialToolbar
@@ -134,11 +135,18 @@
         app:cardElevation="3dp"
         app:cardBackgroundColor="@color/surface">
 
-        <LinearLayout
-            android:id="@+id/all_records_container"
+        <ScrollView
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical" />
+            android:layout_height="match_parent"
+            android:fillViewport="true">
+
+            <LinearLayout
+                android:id="@+id/all_records_container"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical" />
+
+        </ScrollView>
 
     </androidx.cardview.widget.CardView>
 

@@ -4,6 +4,7 @@ import android.content.Context;
 import android.content.SharedPreferences;
 import org.json.JSONArray;
 import org.json.JSONObject;
+import java.text.SimpleDateFormat;
 import java.util.*;
 
 /**
@@ -22,6 +23,47 @@ public class RecordManager {
     private static final String PREFS_NAME = "ledger_data";
     /** 存储记录列表的 key */
     private static final String KEY_RECORDS = "records";
+
+    // ---------- 日期工具（集中管理，避免各处重复创建） ----------
+    /** 日期格式：yyyy-MM-dd */
+    private static final SimpleDateFormat DATE_FORMAT =
+            new SimpleDateFormat("yyyy-MM-dd", Locale.CHINA);
+    /** 显示格式：M月d日 */
+    private static final SimpleDateFormat DISPLAY_FORMAT =
+            new SimpleDateFormat("M月d日", Locale.CHINA);
+
+    /**
+     * 获取今天日期字符串
+     */
+    public static String getTodayString() {
+        return DATE_FORMAT.format(new Date());
+    }
+
+    /**
+     * 获取昨天日期字符串
+     */
+    public static String getYesterdayString() {
+        Calendar cal = Calendar.getInstance();
+        cal.add(Calendar.DAY_OF_YEAR, -1);
+        return DATE_FORMAT.format(cal.getTime());
+    }
+
+    /**
+     * 获取日期的友好显示名称
+     * @param dateStr yyyy-MM-dd
+     * @return "今天" / "昨天" / "M月d日"
+     */
+    public static String getDateDisplayName(String dateStr) {
+        if (dateStr == null || dateStr.isEmpty()) return "未知日期";
+        if (getTodayString().equals(dateStr)) return "今天";
+        if (getYesterdayString().equals(dateStr)) return "昨天";
+        try {
+            Date date = DATE_FORMAT.parse(dateStr);
+            return DISPLAY_FORMAT.format(date);
+        } catch (Exception e) {
+            return dateStr;
+        }
+    }
 
     /** 预设的支出分类（用于记账弹窗的分类下拉框） */
     public static final String[] EXPENSE_CATEGORIES = {
@@ -64,21 +106,24 @@ public class RecordManager {
 
     // ---------- 查询方法 ----------
 
-    /** 返回所有记录（按添加时间降序） */
+    /**
+     * 返回所有记录的防御性副本
+     * （外部不可直接修改原始列表，防止绕过 saveRecords）
+     */
     public List<Record> getRecords() {
-        return records;
+        return new ArrayList<>(records);
     }
 
     /**
      * 获取当月（本月）的所有记录
-     * 判断依据：record.date 以 "yyyy-MM" 开头
+     * 判断依据：record.getDate() 以 "yyyy-MM" 开头
      */
     public List<Record> getMonthRecords() {
         String today = getToday();
         String month = today.substring(0, 7); // 例如 "2026-05"
         List<Record> result = new ArrayList<>();
         for (Record r : records) {
-            if (r.date != null && r.date.startsWith(month)) {
+            if (r.getDate() != null && r.getDate().startsWith(month)) {
                 result.add(r);
             }
         }
@@ -92,7 +137,7 @@ public class RecordManager {
     public List<Record> getRecentRecords(int limit) {
         List<Record> all = new ArrayList<>(records);
         // 按时间戳倒排，最新的在前面
-        Collections.sort(all, (a, b) -> Long.compare(b.timestamp, a.timestamp));
+        Collections.sort(all, (a, b) -> Long.compare(b.getTimestamp(), a.getTimestamp()));
         if (all.size() > limit) {
             all = all.subList(0, limit);
         }
@@ -105,8 +150,8 @@ public class RecordManager {
     public double getMonthIncome() {
         double sum = 0;
         for (Record r : getMonthRecords()) {
-            if (Record.TYPE_INCOME.equals(r.type)) {
-                sum += r.amount;
+            if (Record.TYPE_INCOME.equals(r.getType())) {
+                sum += r.getAmount();
             }
         }
         return sum;
@@ -116,8 +161,8 @@ public class RecordManager {
     public double getMonthExpense() {
         double sum = 0;
         for (Record r : getMonthRecords()) {
-            if (Record.TYPE_EXPENSE.equals(r.type)) {
-                sum += r.amount;
+            if (Record.TYPE_EXPENSE.equals(r.getType())) {
+                sum += r.getAmount();
             }
         }
         return sum;
@@ -135,7 +180,7 @@ public class RecordManager {
         String today = getToday();
         List<Record> result = new ArrayList<>();
         for (Record r : records) {
-            if (today.equals(r.date)) {
+            if (today.equals(r.getDate())) {
                 result.add(r);
             }
         }
@@ -150,10 +195,10 @@ public class RecordManager {
     public Map<String, Double> getExpenseByCategoryFromList(List<Record> source) {
         Map<String, Double> map = new LinkedHashMap<>();
         for (Record r : source) {
-            if (Record.TYPE_EXPENSE.equals(r.type)) {
-                String cat = r.category;
+            if (Record.TYPE_EXPENSE.equals(r.getType())) {
+                String cat = r.getCategory();
                 if (cat == null || cat.isEmpty()) cat = "其他";
-                map.put(cat, map.getOrDefault(cat, 0.0) + r.amount);
+                map.put(cat, map.getOrDefault(cat, 0.0) + r.getAmount());
             }
         }
         return map;
@@ -177,8 +222,8 @@ public class RecordManager {
         // 用 TreeMap 保证按日期升序排列
         Map<String, Double> map = new TreeMap<>();
         for (Record r : getMonthRecords()) {
-            if (Record.TYPE_EXPENSE.equals(r.type) && r.date != null) {
-                map.put(r.date, map.getOrDefault(r.date, 0.0) + r.amount);
+            if (Record.TYPE_EXPENSE.equals(r.getType()) && r.getDate() != null) {
+                map.put(r.getDate(), map.getOrDefault(r.getDate(), 0.0) + r.getAmount());
             }
         }
         return map;
@@ -201,7 +246,7 @@ public class RecordManager {
     public void deleteRecord(String id) {
         Iterator<Record> it = records.iterator();
         while (it.hasNext()) {
-            if (it.next().id.equals(id)) {
+            if (it.next().getId().equals(id)) {
                 it.remove();
                 break;
             }
@@ -224,7 +269,7 @@ public class RecordManager {
             // JSON 解析失败就当作空列表
         }
         // 按时间戳降序排列（最新的在前）
-        Collections.sort(records, (a, b) -> Long.compare(b.timestamp, a.timestamp));
+        Collections.sort(records, (a, b) -> Long.compare(b.getTimestamp(), a.getTimestamp()));
     }
 
     /** 把内存中的记录列表全量写入 SharedPreferences */
@@ -238,8 +283,6 @@ public class RecordManager {
 
     /** 获取今日日期字符串 yyyy-MM-dd */
     private String getToday() {
-        java.text.SimpleDateFormat sdf =
-            new java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.CHINA);
-        return sdf.format(new Date());
+        return getTodayString();
     }
 }

@@ -18,21 +18,21 @@ public class Record {
     /** 支出类型标识 */
     public static final String TYPE_EXPENSE = "expense";
 
-    // ---------- 字段 ----------
+    // ---------- 字段（私有，通过 getter 访问） ----------
     /** 唯一 ID（UUID 自动生成） */
-    public String id;
+    private String id;
     /** 类型：TYPE_INCOME("income") / TYPE_EXPENSE("expense") */
-    public String type;
+    private String type;
     /** 金额，单位元 */
-    public double amount;
+    private double amount;
     /** 分类，如"餐饮"、"交通"、"工资" */
-    public String category;
+    private String category;
     /** 备注文字 */
-    public String note;
+    private String note;
     /** 日期，格式 yyyy-MM-dd */
-    public String date;
+    private String date;
     /** 创建时间戳（毫秒） */
-    public long timestamp;
+    private long timestamp;
 
     // ---------- 构造 ----------
 
@@ -58,6 +58,29 @@ public class Record {
         this.note = note;
         this.date = date;
     }
+
+    // ---------- Getter / Setter ----------
+
+    public String getId() { return id; }
+    public void setId(String id) { this.id = id; }
+
+    public String getType() { return type; }
+    public void setType(String type) { this.type = type; }
+
+    public double getAmount() { return amount; }
+    public void setAmount(double amount) { this.amount = amount; }
+
+    public String getCategory() { return category; }
+    public void setCategory(String category) { this.category = category; }
+
+    public String getNote() { return note; }
+    public void setNote(String note) { this.note = note; }
+
+    public String getDate() { return date; }
+    public void setDate(String date) { this.date = date; }
+
+    public long getTimestamp() { return timestamp; }
+    public void setTimestamp(long timestamp) { this.timestamp = timestamp; }
 
     // ---------- JSON 序列化 / 反序列化 ----------
 
